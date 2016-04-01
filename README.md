@@ -18,11 +18,14 @@ Individual steps of the process can be disabled or tuned using options (see `bin
 
 ## Examples
 
-`binauralconv.py --ext=".m4a" --no-cue --no-split /path/to/audio`
+```binauralconv.py --ext=".m4a" --no-cue --no-split /path/to/audio```
+
 Concatenate and convert all .m4a files in `/path/to/audio`, but don't generate a cuesheet or split into individual tracks.
 
-`binauralconv.py --dir=. --concatfile=album.wav --cuefile=album.cue`
+```binauralconv.py --dir=. --concatfile=album.wav --cuefile=album.cue```
+
 Use existing audio file and cuesheet instead of generating them from scratch, and perform conversion in current working directory.
 
-`binauralconv.py --baseworkdir=/tmp/binauralconv --splitoutdir=/media/music ~/Documents/suroundstuff`
+```binauralconv.py --baseworkdir=/tmp/binauralconv --splitoutdir=/media/music ~/Documents/suroundstuff```
+
 Convert all FLAC files in `~/Documents/suroundstuff`, placing work files in `/tmp/binauralconv/surroundstuff` and the output in `/media/music`. (Output file/directory pattern based on tags can be configured in `split2flac`)
