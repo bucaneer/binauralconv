@@ -1,6 +1,8 @@
 A script for converting (surround) audio files into binaural stereo.
 
-## Dependencies:
+## Dependencies
+* [python](https://www.python.org/) (version 3)
+* [mutagen](https://bitbucket.org/lazka/mutagen)
 * [ffmpeg](https://www.ffmpeg.org/) (latest git master recommended, no earlier than 2016-03-29)
 * [split2flac](https://github.com/ftrvxmtrx/split2flac)
 
