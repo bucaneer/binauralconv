@@ -45,8 +45,8 @@ eqdelay = 0.2
 layout = "5.1"
 volgain = None
 volgainoffset = -0.05
-baseworkdir = "/media/storage/SURROUND RAW"
-splitoutdir = "/media/storage/MUZIKA/BINAURAL"
+baseworkdir = "/tmp/binauralconv"
+splitoutdir = "."
 
 class Logger ():
 	def __init__ (self):
@@ -288,7 +288,7 @@ Individual steps of the process can be disabled or tuned using these options:
   only generate cue sheet
  
  --sofagain=FLT, -sofagain=FLT:
-  gain applied in the sofalizer filter (default: {sofagain})
+  gain applied in the sofalizer filter (current: {sofagain})
  
  --volgain=FLT, -volgain=FLT, -g=FLT:
   volume gain to apply (default: detected automatically)
@@ -312,31 +312,31 @@ Individual steps of the process can be disabled or tuned using these options:
   file extension to convert (default: {ext})
  
  --dir=DIR, -dir=DIR, -d=DIR:
-  working directory (default: [baseworkdir]/[PATH basename])
+  working directory (default: {bwdir}/[PATH basename])
  
  --no-log, -no-log, -l:
   don't write a log file
  
  --concatfile=FILE, -concatfile=FILE:
-  filename of concatenated album (default: {concatfile})
+  filename of concatenated album (current: {concatfile})
  
  --convfile=FILE, -convfile=FILE:
-  filename of converted album (default: {convfile})
+  filename of converted album (current: {convfile})
  
  --listfile=FILE, -listfile=FILE:
-  filename of list file for concatenation (default: {listfile})
+  filename of list file for concatenation (current: {listfile})
  
  --cuefile=FILE, -cuefile=FILE:
-  filename of cue sheet (default: {cuefile})
+  filename of cue sheet (current: {cuefile})
  
  --logfile=FILE, -logfile=FILE:
-  filename of output log (default: {logfile})
+  filename of output log (current: {logfile})
  
  --baseworkdir=DIR, -baseworkdir=DIR:
-  base for the default work directory (default: {bwdir})
+  base for the default work directory (current: {bwdir})
  
  --splitoutdir=DIR, -splitoutdir=DIR:
-  output directory for split songs (default: {splitout})
+  output directory for split songs (current: {splitout})
  
  --quad, -quad, -4:
   use quadraphonic speaker layout
