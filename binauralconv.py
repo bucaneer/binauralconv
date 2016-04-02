@@ -483,15 +483,15 @@ Individual steps of the process can be disabled or tuned using these options:
 	log("Path: %s" % path)
 	log("Wdir: %s" % wdir)
 	
-	if doconcat:
-		log("### Concatenating...")
-		concat()
-		log("### Concatenating - done.")
-	
 	if domakecue:
 		log("### Making CUE sheet...")
 		makecue()
 		log("### Making CUE sheet - done.")
+	
+	if doconcat:
+		log("### Concatenating...")
+		concat()
+		log("### Concatenating - done.")
 	
 	if dovolgain and volgain is None:
 		log("### Running volume detection...")
