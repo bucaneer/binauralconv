@@ -27,6 +27,7 @@ import sys
 import subprocess as sp
 from os import listdir, chdir, mkdir
 from os.path import abspath, basename, dirname, isdir, isfile, join, realpath, split
+from shutil import which
 import mutagen as mg
 from time import strftime
 
@@ -35,6 +36,8 @@ scriptdir = dirname(realpath(__file__))
 quiet = False
 verbose = False
 force = False
+ffmpeg = which("ffmpeg")
+splitflac = which("split2flac")
 sofafile = join(scriptdir, "ClubFritz11.sofa")
 fileext = ".flac"
 concatfile = "concat.flac"
@@ -141,7 +144,7 @@ def concat ():
 	if isfile(concatfile) and not force:
 		log("Concatenated file exists, skipping.")
 		return
-	args = ["ffmpeg", "-f", "concat", "-safe", "0", "-i", listfile, "-c:a", "flac", concatfile]
+	args = [ffmpeg, "-f", "concat", "-safe", "0", "-i", listfile, "-c:a", "flac", concatfile]
 	if force:
 		args.insert(-1, "-y")
 	process(args)
@@ -231,7 +234,7 @@ def voldet ():
 			return
 	
 	while volgain is None and sofagain > 0:
-		args = ["ffmpeg", "-i", concatfile, "-af", filtergraph(), 
+		args = [ffmpeg, "-i", concatfile, "-af", filtergraph(), 
 			"-f", "null", "/dev/null"]
 		process(args, parseline, (0, -9))
 
@@ -242,13 +245,13 @@ def bconv ():
 	if isfile(convfile) and not force:
 		log("Converted file exists, skipping.")
 		return
-	args = ["ffmpeg", "-i", concatfile, "-af", filtergraph(volgain), convfile]
+	args = [ffmpeg, "-i", concatfile, "-af", filtergraph(volgain), convfile]
 	if force:
 		args.insert(-1, "-y")
 	process(args)
 
 def cuesplit ():
-	process(["split2flac", convfile, "-cue", cuefile, "-o", splitoutdir])
+	process([splitflac, convfile, "-cue", cuefile, "-o", splitoutdir])
 
 if __name__ == '__main__':
 	path = None
@@ -321,6 +324,12 @@ Individual steps of the process can be disabled or tuned using these options:
  --no-log, -no-log, -l:
   don't write a log file
  
+ --ffmpeg=FILE, -ffmpeg=FILE:
+  path to FFmpeg executable (currrent: {ffmpeg})
+ 
+ --split2flac=FILE, -split2flac=FILE:
+  path to split2flac executable (current: {splitflac})
+ 
  --sofafile=FILE, -sofafile=FILE:
   path to SOFA file (current: {sofa})
  
@@ -356,9 +365,10 @@ Individual steps of the process can be disabled or tuned using these options:
  
  --help, -help, -h:
   show this message and quit
-""".format(exe=exe, ext=fileext, sofagain=sofagain, sofa=sofafile, concatfile=concatfile, 
-		convfile=convfile, listfile=listfile, cuefile=cuefile, logfile=logfile, 
-		bwdir=baseworkdir, splitout=splitoutdir))
+""".format(exe=exe, ext=fileext, sofagain=sofagain, sofa=sofafile, ffmpeg=ffmpeg, 
+		splitflac=splitflac, concatfile=concatfile, convfile=convfile,
+		listfile=listfile, cuefile=cuefile, logfile=logfile, bwdir=baseworkdir,
+		splitout=splitoutdir))
 			sys.exit(0)
 		elif argname in ("--no-concat", "-no-concat", "-t"):
 			doconcat = False
@@ -382,6 +392,10 @@ Individual steps of the process can be disabled or tuned using these options:
 			fileext = param.lower()
 		elif argname in ("--no-log", "-no-log", "-l"):
 			logtofile = False
+		elif argname in ("--ffmpeg", "-ffmpeg"):
+			ffmpeg = param
+		elif argname in ("--split2flac", "-split2flac"):
+			splitflac = param
 		elif argname in ("--sofafile", "-sofafile"):
 			sofafile = param
 		elif argname in ("--concatfile", "-concatfile"):
@@ -442,6 +456,12 @@ Individual steps of the process can be disabled or tuned using these options:
 	
 	if path is None:
 		path = abspath(".")
+	
+	if (doconcat or dovolgain or dobconv) and not which(ffmpeg):
+		fatal("Wrong FFmpeg path: %s" % ffmpeg)
+	
+	if dosplit and not which(splitflac):
+		fatal("Wrong split2flac path: %s" % splitflac)
 	
 	if (dovolgain or dobconv) and not isfile(sofafile):
 		fatal("SOFA file not found.")
