@@ -26,13 +26,16 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import sys
 import subprocess as sp
 from os import listdir, chdir, mkdir
-from os.path import abspath, basename, isdir, isfile, join, split
+from os.path import abspath, basename, dirname, isdir, isfile, join, realpath, split
 import mutagen as mg
 from time import strftime
+
+scriptdir = dirname(realpath(__file__))
 
 quiet = False
 verbose = False
 force = False
+sofafile = join(scriptdir, "ClubFritz11.sofa")
 fileext = ".flac"
 concatfile = "concat.flac"
 convfile = "concat_b.flac"
@@ -89,12 +92,13 @@ def filtergraph (volume=None):
 	graph = "\
 pan=hexagonal|FL=FL|FR=FR|FC=FC|BC=LFE|BL<SL+BL|BR<SR+BR,\
 aresample=96000:resampler=soxr:precision=28,\
-sofalizer=sofa=/home/justas-arch/.config/mpv/ClubFritz11.sofa:gain=%s:%s,\
-firequalizer=delay=%s:gain_entry='entry(0,0);entry(40,1);entry(55,1);\
+sofalizer=sofa={sofa}:gain={sofagain}:{speakers},\
+firequalizer=delay={eqdelay}:gain_entry='entry(0,0);entry(40,1);entry(55,1);\
 entry(75,6);entry(120,2);entry(250,0);entry(400,0);entry(1700,-1);\
 entry(2000,-4);entry(4500,-11);entry(7500,-3);entry(9500,-3);\
 entry(10000,-4);entry(12000,-4);entry(14000,0);entry(15000,-3);entry(20000,0)',\
-aresample=48000:resampler=soxr:precision=28" % (sofagain, speakers, eqdelay)
+aresample=48000:resampler=soxr:precision=28".format(sofa=sofafile, sofagain=sofagain, 
+		speakers=speakers, eqdelay=eqdelay)
 	if volume is not None and isfloat(volume):
 		graph += ",volume=%sdB" % float(volume)
 	else:
@@ -317,6 +321,9 @@ Individual steps of the process can be disabled or tuned using these options:
  --no-log, -no-log, -l:
   don't write a log file
  
+ --sofafile=FILE, -sofafile=FILE:
+  path to SOFA file (current: {sofa})
+ 
  --concatfile=FILE, -concatfile=FILE:
   filename of concatenated album (current: {concatfile})
  
@@ -349,9 +356,9 @@ Individual steps of the process can be disabled or tuned using these options:
  
  --help, -help, -h:
   show this message and quit
-""".format(exe=exe, ext=fileext, sofagain=sofagain, concatfile=concatfile, convfile=convfile, 
-		listfile=listfile, cuefile=cuefile, logfile=logfile, bwdir=baseworkdir, 
-		splitout=splitoutdir))
+""".format(exe=exe, ext=fileext, sofagain=sofagain, sofa=sofafile, concatfile=concatfile, 
+		convfile=convfile, listfile=listfile, cuefile=cuefile, logfile=logfile, 
+		bwdir=baseworkdir, splitout=splitoutdir))
 			sys.exit(0)
 		elif argname in ("--no-concat", "-no-concat", "-t"):
 			doconcat = False
@@ -375,6 +382,8 @@ Individual steps of the process can be disabled or tuned using these options:
 			fileext = param.lower()
 		elif argname in ("--no-log", "-no-log", "-l"):
 			logtofile = False
+		elif argname in ("--sofafile", "-sofafile"):
+			sofafile = param
 		elif argname in ("--concatfile", "-concatfile"):
 			concatfile = param
 		elif argname in ("--convfile", "-convfile"):
@@ -433,6 +442,9 @@ Individual steps of the process can be disabled or tuned using these options:
 	
 	if path is None:
 		path = abspath(".")
+	
+	if (dovolgain or dobconv) and not isfile(sofafile):
+		fatal("SOFA file not found.")
 	
 	if wdir is None:
 		wdir = join(baseworkdir, basename(path))

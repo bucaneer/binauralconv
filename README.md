@@ -31,3 +31,8 @@ Use existing audio file and cuesheet instead of generating them from scratch, an
 ```binauralconv.py --baseworkdir=/tmp/binauralconv --splitoutdir=/media/music ~/Documents/suroundstuff```
 
 Convert all FLAC files in `~/Documents/suroundstuff`, placing work files in `/tmp/binauralconv/surroundstuff` and the output in `/media/music`. (Output file/directory pattern based on tags can be configured in `split2flac`)
+
+## License
+
+binauralconv.py is provided under the MIT license.
+ClubFritz11.sofa ([source](http://www.sofaconventions.org/mediawiki/index.php/Main_Page)) by Acoustics Research Institute, Austrian Academy of Sciences is licenced under [Creative Commons Attribution-ShareAlike 3.0 Unported License](http://creativecommons.org/licenses/by-sa/3.0/).
