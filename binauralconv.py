@@ -25,7 +25,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import sys
 import subprocess as sp
-from os import listdir, chdir, mkdir
+from os import listdir, chdir, mkdir, remove
 from os.path import abspath, basename, dirname, isdir, isfile, join, realpath, split
 from shutil import which
 import mutagen as mg
@@ -49,10 +49,12 @@ sofagain = 20.5
 sofagainstep = 1.0
 eqdelay = 0.2
 layout = "5.1"
+generatelfe = False
 volgain = None
 volgainoffset = -0.05
 baseworkdir = "/tmp/binauralconv"
 splitoutdir = "."
+tempfile = None
 
 class Logger ():
 	def __init__ (self):
@@ -81,6 +83,7 @@ def log (msg):
 
 def isfloat (x):
 	try:
+		float(x)
 		return True
 	except ValueError:
 		return False
@@ -92,7 +95,24 @@ def filtergraph (volume=None):
 		speakers = speakers40
 	else:
 		speakers = speakers51
-	graph = "\
+	
+	if generatelfe:
+		pan = "\
+asplit=2 [orig][sub];\
+[sub] pan=mono|FC<FC+FR+SL+FL+SR+BL+BR+BC+LFE,firequalizer=gain='if(lt(f,150), 0, -INF)',pan=LFE|LFE=c0 [LFE];\
+[orig] pan=FC+FR+SL+FL+SR+BC|FC=FC|FR=FR|SL<SL+BL|FL=FL|SR<SR+BR|BC=LFE [orig2];\
+[orig2][LFE] amerge,pan=6.1|FL=c0|FR=c1|FC=c2|LFE=0.7*c3|BC=c4|SL=c5|SR=c6"
+	else:
+		pan = "\
+asplit=2 [orig][sub];\
+[sub] channelsplit=channel_layout=5.1 [FL][FR][FC][LFE][BL][BR];\
+[FL][FR][FC][BL][BR] amerge=inputs=5,anullsink;\
+[LFE] firequalizer=gain='if(lt(f,150), 0, -INF)',pan=BC+LFE|LFE=c0|BC=c0,channelsplit=channel_layout=BC+LFE [BC][LFE2];\
+[LFE2] pan=LFE|LFE=c0 [LFE2];[BC] firequalizer=gain='if(gt(f,150), 0, -INF)',pan=BC|BC=c0 [BC];\
+[orig] pan=FC+FR+SL+FL+SR|FC=FC|FR=FR|SL<SL+BL|FL=FL|SR<SR+BR [orig2];\
+[orig2][BC][LFE2] amerge=inputs=3,pan=6.1|FL=c0|FR=c1|FC=c2|LFE=c3|BC=c4|SL=c5|SR=c6"
+	
+	"""graph_old = "\
 pan=hexagonal|FL=FL|FR=FR|FC=FC|BC=LFE|BL<SL+BL|BR<SR+BR,\
 aresample=96000:resampler=soxr:precision=28,\
 sofalizer=sofa={sofa}:gain={sofagain}:{speakers},\
@@ -101,7 +121,20 @@ entry(75,6);entry(120,2);entry(250,0);entry(400,0);entry(1700,-1);\
 entry(2000,-4);entry(4500,-11);entry(7500,-3);entry(9500,-3);\
 entry(10000,-4);entry(12000,-4);entry(14000,0);entry(15000,-3);entry(20000,0)',\
 aresample=48000:resampler=soxr:precision=28".format(sofa=sofafile, sofagain=sofagain, 
-		speakers=speakers, eqdelay=eqdelay)
+		speakers=speakers, eqdelay=eqdelay)"""
+	
+	graph = "\
+{pan},\
+aresample=96000:resampler=soxr:precision=28,\
+sofalizer=sofa={sofa}:gain={sofagain}:speakers={speakers},\
+firequalizer=delay={eqdelay}:accuracy=2:gain_entry='entry(20,2);entry(40,0.5);\
+entry(55,1);entry(60,1.5);entry(75,0.5);entry(100,0);entry(140,2);entry(200,-0.5);\
+entry(250,0);entry(300,0);entry(400,1.0);entry(550,2);entry(700,2);entry(1000,-0.5);\
+entry(1300,-0.5);entry(1700,1);entry(2000,0);entry(2500,-2.0);entry(3000,-4.0);\
+entry(3500,-8);entry(4500,-11.0);entry(7500,-1.0);entry(15000,-1.0);entry(20000,0.0)',\
+aresample=48000:resampler=soxr:precision=28".format(pan=pan, sofa=sofafile, 
+		sofagain=sofagain, speakers=speakers, eqdelay=eqdelay)
+	
 	if volume is not None and isfloat(volume):
 		graph += ",volume=%sdB" % float(volume)
 	else:
@@ -131,6 +164,20 @@ def filelist ():
 		fatal("No %s files found in %s" % (fileext, path))
 	return files
 
+def mktemp ():
+	basename = '/tmp/binauralconv-'
+	def getfname (proc, l):
+		global tempfile
+		nonlocal basename
+		if l.startswith(basename) and isfile(l):
+			tempfile = l;
+	
+	args = ['mktemp', '{base}XXXXXX.wv'.format(base=basename)]
+	process(args, getfname)
+	
+	if tempfile is None:
+		fatal("Could not create temp file")
+
 def concat ():
 	if isfile(listfile) and not force:
 		log("List file exists, skipping.")
@@ -156,12 +203,15 @@ def makecue ():
 		return
 	foofile = join(split(outfile)[0], "foo_"+split(outfile)[1])
 	
+	def tag (metadata, tagname):
+		return(metadata.get(tagname, [""])[0].replace('"', r'\"'))
+	
 	files    = filelist()
 	metadata = mg.File(files[0])
-	album    = metadata.get("album", [""])[0]
-	date     = metadata.get("date",  [""])[0]
-	genre    = metadata.get("genre", [""])[0]
-	alartist = metadata.get("albumartist", [""])[0] or metadata.get("artist", [""])[0]
+	album    = tag(metadata, "album")
+	date     = tag(metadata, "date")
+	genre    = tag(metadata, "genre")
+	alartist = tag(metadata, "albumartist") or tag(metadata, "artist")
 	
 	cueheader = ""
 	cueheader += 'REM GENRE "%s"\n' % genre    if genre    else ""
@@ -190,8 +240,8 @@ def makecue ():
 		cuetrack = ""
 		index = "%0#2d" % (i+1)
 		md = mg.File(files[i])
-		title  = md.get("title",  [""])[0]
-		artist = md.get("artist", [""])[0] or md.get("albumartist", [""])[0]
+		title  = tag(md, "title")
+		artist = tag(md, "artist") or tag(md, "albumartist")
 		length = md.info.length
 		cuetrack += '  TRACK %s AUDIO\n'   % index
 		cuetrack += '    TITLE "%s"\n'     % title  if title  else ""
@@ -222,6 +272,8 @@ def makecue ():
 		fatal("Could not write output to file: %s" % repr(e))
 
 def voldet ():
+	mktemp()
+	
 	def parseline (proc, l):
 		global sofagain, volgain
 		if "Parsed_sofalizer" in l and "samples clipped" in l:
@@ -235,7 +287,7 @@ def voldet ():
 	
 	while volgain is None and sofagain > 0:
 		args = [ffmpeg, "-i", concatfile, "-af", filtergraph(), 
-			"-f", "null", "/dev/null"]
+			"-c:a", "wavpack", "-sample_fmt", "fltp", "-y", tempfile]
 		process(args, parseline, (0, -9))
 
 	if volgain is None:
@@ -245,10 +297,17 @@ def bconv ():
 	if isfile(convfile) and not force:
 		log("Converted file exists, skipping.")
 		return
-	args = [ffmpeg, "-i", concatfile, "-af", filtergraph(volgain), convfile]
+	if tempfile is not None and isfile(tempfile):
+		args = [ffmpeg, "-i", tempfile, "-af", "volume=%sdB" % float(volgain), convfile]
+	else:
+		args = [ffmpeg, "-i", concatfile, "-af", filtergraph(volgain), convfile]
+	
 	if force:
 		args.insert(-1, "-y")
 	process(args)
+	
+	if isfile(tempfile):
+		remove(tempfile)
 
 def cuesplit ():
 	process([splitflac, convfile, "-cue", cuefile, "-o", splitoutdir])
@@ -357,6 +416,9 @@ Individual steps of the process can be disabled or tuned using these options:
  --quad, -quad, -4:
   use quadraphonic speaker layout
  
+ --generate-lfe, -generate-lfe:
+  replace LFE channel with one generated by a lowpass filter (for 5.0 mixes)
+ 
  --quiet, -quiet, -q:
   quiet mode
  
@@ -448,6 +510,8 @@ Individual steps of the process can be disabled or tuned using these options:
 			force = True
 		elif argname in ("--quad", "-quad", "-4"):
 			layout = "4.0"
+		elif argname in ("--generate-lfe", "-generate-fle"):
+			generatelfe = True
 		elif isdir(argname):
 			path = abspath(argname)
 			break
