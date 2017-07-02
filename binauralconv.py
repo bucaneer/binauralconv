@@ -108,8 +108,8 @@ asplit=2 [orig][sub];\
 asplit=2 [orig][sub];\
 [sub] channelsplit=channel_layout=5.1 [FL][FR][FC][LFE][BL][BR];\
 [FL][FR][FC][BL][BR] amerge=inputs=5,anullsink;\
-[LFE] firequalizer=gain='if(lt(f,150), 0, -INF)',pan=BC+LFE|LFE=c0|BC=c0,channelsplit=channel_layout=BC+LFE [BC][LFE2];\
-[LFE2] pan=LFE|LFE=c0 [LFE2];[BC] firequalizer=gain='if(gt(f,150), 0, -INF)',pan=BC|BC=c0 [BC];\
+[LFE] pan=BC+LFE|LFE=c0|BC=c0,channelsplit=channel_layout=BC+LFE [BC][LFE2];\
+[LFE2] firequalizer=gain='if(lt(f,150), 0, -INF)',pan=LFE|LFE=c0 [LFE2];[BC] firequalizer=gain='if(gt(f,150), 0, -INF)',pan=BC|BC=c0 [BC];\
 [orig] pan=FC+FR+SL+FL+SR|FC=FC|FR=FR|SL<SL+BL|FL=FL|SR<SR+BR [orig2];\
 [orig2][BC][LFE2] amerge=inputs=3,pan=6.1|FL=c0|FR=c1|FC=c2|LFE={lfemultiplier}*c3|BC=c4|SL=c5|SR=c6".format(lfemultiplier=lfemultiplier)
 	
