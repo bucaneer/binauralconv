@@ -51,11 +51,13 @@ eqdelay = 0.2
 layout = "5.1"
 generatelfe = False
 lfemultiplier = 1.0
+subboost = True
 volgain = None
 volgainoffset = -0.05
 baseworkdir = "/tmp/binauralconv"
 splitoutdir = "."
 tempfile = None
+sofalizer = False
 
 class Logger ():
 	def __init__ (self):
@@ -90,12 +92,26 @@ def isfloat (x):
 		return False
 
 def filtergraph (volume=None):
-	speakers51 = "speakers=FL 30 0|FR 330 0|FC 0 0|BL 120 0|BR 240 0|BC 180 0"
-	speakers40 = "speakers=FL 45 0|FR 315 0|FC 0 0|BL 135 0|BR 225 0|BC 180 0"
-	if layout == "4.0":
-		speakers = speakers40
+	if sofalizer:
+		speakers51 = "speakers=FL 30 0|FR 330 0|FC 0 0|BL 120 0|BR 240 0|BC 180 0"
+		speakers40 = "speakers=FL 45 0|FR 315 0|FC 0 0|BL 135 0|BR 225 0|BC 180 0"
+		if layout == "4.0":
+			speakers = speakers40
+		else:
+			speakers = speakers51
 	else:
-		speakers = speakers51
+		if layout == "4.0":
+			wavs = "\
+amovie={dir}/wavs/fl_q.wav[h_fl],amovie={dir}/wavs/fr_q.wav[h_fr],\
+amovie={dir}/wavs/fc.wav[h_fc],amovie={dir}/wavs/bc.wav,asplit=2[h_bc][h_lfe],\
+amovie={dir}/wavs/bl_q.wav[h_bl],amovie={dir}/wavs/br_q.wav[h_br]".format(dir=scriptdir)
+		else:
+			wavs = "\
+amovie={dir}/wavs/fl.wav[h_fl],amovie={dir}/wavs/fr.wav[h_fr],\
+amovie={dir}/wavs/fc.wav[h_fc],amovie={dir}/wavs/bc.wav,asplit=2[h_bc][h_lfe],\
+amovie={dir}/wavs/bl.wav[h_bl],amovie={dir}/wavs/br.wav[h_br]".format(dir=scriptdir)
+		
+		speakers="FL|FR|FC|LFE|BC|SL|SR"
 	
 	if generatelfe:
 		pan = "\
@@ -113,28 +129,35 @@ asplit=2 [orig][sub];\
 [orig] pan=FC+FR+SL+FL+SR|FC=FC|FR=FR|SL<SL+BL|FL=FL|SR<SR+BR [orig2];\
 [orig2][BC][LFE2] amerge=inputs=3,pan=6.1|FL=c0|FR=c1|FC=c2|LFE={lfemultiplier}*c3|BC=c4|SL=c5|SR=c6".format(lfemultiplier=lfemultiplier)
 	
-	"""graph_old = "\
-pan=hexagonal|FL=FL|FR=FR|FC=FC|BC=LFE|BL<SL+BL|BR<SR+BR,\
-aresample=96000:resampler=soxr:precision=28,\
-sofalizer=sofa={sofa}:gain={sofagain}:{speakers},\
-firequalizer=delay={eqdelay}:gain_entry='entry(0,0);entry(40,1);entry(55,1);\
-entry(75,6);entry(120,2);entry(250,0);entry(400,0);entry(1700,-1);\
-entry(2000,-4);entry(4500,-11);entry(7500,-3);entry(9500,-3);\
-entry(10000,-4);entry(12000,-4);entry(14000,0);entry(15000,-3);entry(20000,0)',\
-aresample=48000:resampler=soxr:precision=28".format(sofa=sofafile, sofagain=sofagain, 
-		speakers=speakers, eqdelay=eqdelay)"""
+	if subboost:
+		subeq = "entry(20,2);entry(40,1);entry(55,1.5);entry(60,2.5);entry(75,1);entry(85,0.5);"
+	else:
+		subeq = ""
 	
-	graph = "\
-{pan},\
-aresample=96000:resampler=soxr:precision=28,\
-sofalizer=sofa={sofa}:gain={sofagain}:speakers={speakers},\
-firequalizer=delay={eqdelay}:accuracy=2:gain_entry='entry(20,2);entry(40,0.5);\
-entry(55,1);entry(60,1.5);entry(75,0.5);entry(100,0);entry(140,2);entry(200,-0.5);\
+	maineq = "entry(100,0);entry(140,2);entry(200,-0.5);\
 entry(250,0);entry(300,0);entry(400,1.0);entry(550,2);entry(700,2);entry(1000,-0.5);\
 entry(1300,-0.5);entry(1700,1);entry(2000,0);entry(2500,-2.0);entry(3000,-4.0);\
-entry(3500,-8);entry(4500,-11.0);entry(7500,-1.0);entry(15000,-1.0);entry(20000,0.0)',\
+entry(3500,-8);entry(4500,-11.0);entry(7500,-1.0);entry(9500,-1.0);\
+entry(10000,-3);entry(12000,-4);entry(13000,-3);entry(14000,0);entry(15000,-2.0);entry(20000,0.0)"
+	
+	if sofalizer:
+		graph = "\
+{pan},\
+aresample=96000:resampler=soxr:precision=28,\
+sofalizer=sofa={sofa}:gain={sofagain}:{speakers},\
+firequalizer=delay={eqdelay}:accuracy=2:gain_entry='{subeq}{maineq}',\
 aresample=48000:resampler=soxr:precision=28".format(pan=pan, sofa=sofafile, 
-		sofagain=sofagain, speakers=speakers, eqdelay=eqdelay)
+		sofagain=sofagain, speakers=speakers, eqdelay=eqdelay, subeq=subeq,
+		maineq=maineq)
+	else:
+		graph = "\
+{wavs},\
+[a:0]{pan},\
+aresample=96000:resampler=soxr:precision=28[main],\
+[main][h_fl][h_fr][h_fc][h_lfe][h_bc][h_bl][h_br]headphone=map={speakers},\
+firequalizer=delay={eqdelay}:accuracy=2:gain_entry='{subeq}{maineq}',\
+aresample=48000:resampler=soxr:precision=28".format(wavs=wavs, pan=pan, 
+		speakers=speakers, eqdelay=eqdelay, subeq=subeq, maineq=maineq)
 	
 	if volume is not None and isfloat(volume):
 		graph += ",volume=%sdB" % float(volume)
@@ -422,6 +445,14 @@ Individual steps of the process can be disabled or tuned using these options:
  
  --lfe-multiplier=FLT, -lfe-multiplier=FLT:
   adjust gain of LFE channel (current: {lfemultiplier})
+  
+ --subboost, -subboost ||
+ --no-subboost, -no-subboost:
+  (do not) apply extra gain on <100Hz frequencies via equalizer (current: {subboost})
+ 
+ --sofalizer, -sofalizer ||
+ --no-sofalizer, -no-sofalizer:
+  (do not) use sofalizer FFmpeg filter instead of headphone (current: {sofalizer})
  
  --quiet, -quiet, -q:
   quiet mode
@@ -434,7 +465,9 @@ Individual steps of the process can be disabled or tuned using these options:
 """.format(exe=exe, ext=fileext, sofagain=sofagain, sofa=sofafile, ffmpeg=ffmpeg, 
 		splitflac=splitflac, concatfile=concatfile, convfile=convfile,
 		listfile=listfile, cuefile=cuefile, logfile=logfile, bwdir=baseworkdir,
-		splitout=splitoutdir, lfemultiplier=lfemultiplier))
+		splitout=splitoutdir, lfemultiplier=lfemultiplier,
+		subboost=("subboost" if subboost else "no-subboost"),
+		sofalizer=("sofalizer" if sofalizer else "no-sofalizer")))
 			sys.exit(0)
 		elif argname in ("--no-concat", "-no-concat", "-t"):
 			doconcat = False
@@ -521,6 +554,14 @@ Individual steps of the process can be disabled or tuned using these options:
 				lfemultiplier = float(param)
 			else:
 				log("Invalid value for LFE multiplier, ignoring")
+		elif argname in ("--subboost", "-subboost"):
+			subboost = True
+		elif argname in ("--no-subboost", "-no-subboost"):
+			subboost = False
+		elif argname in ("--sofalizer", "-sofalizer"):
+			sofalizer = True
+		elif argname in ("--no-sofalizer", "-no-sofalizer"):
+			sofalizer = False
 		elif isdir(argname):
 			path = abspath(argname)
 			break
