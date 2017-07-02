@@ -518,7 +518,7 @@ Individual steps of the process can be disabled or tuned using these options:
 			generatelfe = True
 		elif argname in ("--lfe-multiplier", "-lfe-multiplier"):
 			if isfloat(param):
-				lfemultipier = float(param)
+				lfemultiplier = float(param)
 			else:
 				log("Invalid value for LFE multiplier, ignoring")
 		elif isdir(argname):
