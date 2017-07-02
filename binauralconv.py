@@ -596,6 +596,13 @@ Individual steps of the process can be disabled or tuned using these options:
 	
 	log("Path: %s" % path)
 	log("Wdir: %s" % wdir)
+	log("Layout: %s" % layout)
+	log("Generate LFE? %s" % ("yes" if generatelfe else "no"))
+	log("Subboost? %s" % ("yes" if subboost else "no"))
+	if sofalizer:
+		log("SOFA gain: %.2f" % sofagain)
+	log("LFE multiplier: %.2f" % lfemultiplier)
+	log("Sofalizer? %s" % ("yes" if sofalizer else "no"))
 	
 	if domakecue:
 		log("### Making CUE sheet...")
