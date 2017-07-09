@@ -55,6 +55,7 @@ subboost = True
 volgain = None
 volgainoffset = -0.05
 baseworkdir = "/tmp/binauralconv"
+tempdir = "/tmp/binauralconv"
 splitoutdir = "."
 tempfile = None
 sofalizer = False
@@ -189,7 +190,7 @@ def filelist ():
 	return files
 
 def mktemp ():
-	basename = '/tmp/binauralconv-'
+	basename = join(tempdir, 'temp-');
 	def getfname (proc, l):
 		global tempfile
 		nonlocal basename
@@ -511,6 +512,8 @@ Individual steps of the process can be disabled or tuned using these options:
 			baseworkdir = param
 		elif argname in ("--splitoutdir", "-splitoutdir"):
 			splitoutdir = param
+		elif argname in ("--tempdir", "-tempdir"):
+			tempdir = param
 		elif argname in ("--concat-only", "-concat-only"):
 			doconcat = True
 			domakecue = False
