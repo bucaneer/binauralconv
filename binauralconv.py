@@ -611,9 +611,9 @@ Individual steps of the process can be disabled or tuned using these options:
 		log("### Concatenating - done.")
 	
 	if dovolgain and volgain is None:
-		log("### Coverting (pass 1)...")
+		log("### Converting (pass 1)...")
 		voldet()
-		log("### Coverting (pass 1) - done. (volgain = %.2f)" % volgain)
+		log("### Converting (pass 1) - done. (volgain = %.2f)" % volgain)
 	
 	if dobconv:
 		log("### Converting (pass 2)...")
