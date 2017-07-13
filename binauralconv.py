@@ -30,6 +30,7 @@ from os.path import abspath, basename, dirname, isdir, isfile, join, realpath, s
 from shutil import which
 import mutagen as mg
 from time import strftime
+import tempfile as tmp
 
 scriptdir = dirname(realpath(__file__))
 
@@ -55,7 +56,6 @@ subboost = True
 volgain = None
 volgainoffset = -0.05
 baseworkdir = "/tmp/binauralconv"
-tempdir = "/tmp/binauralconv"
 splitoutdir = "."
 tempfile = None
 sofalizer = False
@@ -190,15 +190,10 @@ def filelist ():
 	return files
 
 def mktemp ():
-	basename = join(tempdir, 'temp-');
-	def getfname (proc, l):
-		global tempfile
-		nonlocal basename
-		if l.startswith(basename) and isfile(l):
-			tempfile = l;
-	
-	args = ['mktemp', '{base}XXXXXX.wv'.format(base=basename)]
-	process(args, getfname)
+	global tempfile
+	filehandle, filename = tmp.mkstemp(prefix='binauralconv-', suffix='.wv')
+	if isfile(filename):
+		tempfile = filename
 	
 	if tempfile is None:
 		fatal("Could not create temp file")
@@ -512,8 +507,6 @@ Individual steps of the process can be disabled or tuned using these options:
 			baseworkdir = param
 		elif argname in ("--splitoutdir", "-splitoutdir"):
 			splitoutdir = param
-		elif argname in ("--tempdir", "-tempdir"):
-			tempdir = param
 		elif argname in ("--concat-only", "-concat-only"):
 			doconcat = True
 			domakecue = False
