@@ -611,14 +611,14 @@ Individual steps of the process can be disabled or tuned using these options:
 		log("### Concatenating - done.")
 	
 	if dovolgain and volgain is None:
-		log("### Running volume detection...")
+		log("### Coverting (pass 1)...")
 		voldet()
-		log("### Running volume detection - done. (volgain = %.2f)" % volgain)
+		log("### Coverting (pass 1) - done. (volgain = %.2f)" % volgain)
 	
 	if dobconv:
-		log("### Converting...")
+		log("### Converting (pass 2)...")
 		bconv()
-		log("### Converting - done.")
+		log("### Converting (pass 2) - done.")
 	
 	if dosplit:
 		log("### Splitting...")
