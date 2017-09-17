@@ -55,6 +55,9 @@ lfemultiplier = 1.0
 subboost = True
 volgain = None
 volgainoffset = -0.05
+rgnormalize = True
+replaygain = None
+alimit = False
 baseworkdir = "/tmp/binauralconv"
 splitoutdir = "."
 tempfile = None
@@ -161,9 +164,16 @@ firequalizer=delay={eqdelay}:accuracy=2:gain_entry='{subeq}{maineq}'".format(wav
 		maineq=maineq)
 	
 	if volume is not None and isfloat(volume):
-		graph += ",volume=%sdB" % float(volume)
+		graph += ",%s" % oufiltergraph(volume)
 	else:
-		graph += ",volumedetect"
+		graph += ",volumedetect,replaygain"
+	return graph
+
+def outfiltergraph (volume):
+	graph = "volume=%sdB" % float(volume)
+	if (alimit):
+		graph += ",alimiter=limit=0.999:level=0:asc=0:attack=10:release=10"
+	graph += ",aresample=48000:resampler=soxr:precision=28"
 	return graph
 
 def process (args, linefunc=None, exitcodes=(0,)):
@@ -291,36 +301,59 @@ def makecue ():
 	except Exception as e:
 		fatal("Could not write output to file: %s" % repr(e))
 
+def voldet_parseline (proc, l):
+	global sofagain, volgain, replaygain
+	if ("Parsed_sofalizer" in l or "Parsed_headphone" in l) and "samples clipped" in l:
+		proc.kill()
+		sofagain -= sofagainstep
+		log("Sofalizer gain too high, trying %s dB..." % sofagain)
+		return
+	elif "Parsed_replaygain" in l and "track_gain" in l:
+		replaygain = float(l.split(" ")[-2])
+	elif "Parsed_volumedetect" in l and "max_volume" in l:
+		volgain = -float(l.split(" ")[-2]) + volgainoffset
+
 def voldet ():
+	global alimit, replaygain
+	
 	mktemp()
 	
-	def parseline (proc, l):
-		global sofagain, volgain
-		if "Parsed_sofalizer" in l and "samples clipped" in l:
-			proc.kill()
-			sofagain -= sofagainstep
-			log("Sofalizer gain too high, trying %s dB..." % sofagain)
-			return
-		elif "Parsed_volumedetect" in l and "max_volume" in l:
-			volgain = -float(l.split(" ")[-2]) + volgainoffset
-			return
-	
-	while volgain is None and sofagain > 0:
+	while volgain is None and replaygain is None and sofagain > 0:
 		args = [ffmpeg, "-i", concatfile, "-af", filtergraph(), 
 			"-c:a", "wavpack", "-sample_fmt", "fltp", "-y", tempfile]
-		process(args, parseline, (0, -9))
+		process(args, voldet_parseline, (0, -9))
 
 	if volgain is None:
 		fatal("Could not find safe volume gain")
+	
+	if replaygain is not None and replaygain > volgain and rgnormalize:
+		alimit = True
 
 def bconv ():
+	global replaygain
+	
 	if isfile(convfile) and not force:
 		log("Converted file exists, skipping.")
 		return
-	if tempfile is not None and isfile(tempfile):
-		args = [ffmpeg, "-i", tempfile, "-af", "volume=%sdB" % float(volgain), convfile]
+	
+	if (alimit):
+		gain = replaygain
 	else:
-		args = [ffmpeg, "-i", concatfile, "-af", filtergraph(volgain), convfile]
+		gain = volgain
+	
+	if tempfile is not None and isfile(tempfile):
+		if (rgnormalize):
+			# Dry run - check if any further volume normalization needed
+			replaygain = None
+			args = [ffmpeg, "-i", tempfile, "-af", outfiltergraph(gain)+',replaygain', "-f", "null", "-"]
+			process(args, voldet_parseline, (0, -9))
+			if (replaygain > 0):
+				gain += replaygain
+				log("Additional gain correction: %.2f (total: %.2f)" % (replaygain, gain))
+		
+		args = [ffmpeg, "-i", tempfile, "-af", outfiltergraph(gain), convfile]
+	else:
+		args = [ffmpeg, "-i", concatfile, "-af", filtergraph(gain), convfile]
 	
 	if force:
 		args.insert(-1, "-y")
@@ -449,6 +482,10 @@ Individual steps of the process can be disabled or tuned using these options:
  --sofalizer, -sofalizer ||
  --no-sofalizer, -no-sofalizer:
   (do not) use sofalizer FFmpeg filter instead of headphone (current: {sofalizer})
+
+ --normalize, -normalize ||
+ --no-normalize, -no-normalize:
+  (do not) normalize output to be at least as loud as ReplayGain reference (surrent: {normalize})
  
  --quiet, -quiet, -q:
   quiet mode
@@ -463,7 +500,8 @@ Individual steps of the process can be disabled or tuned using these options:
 		listfile=listfile, cuefile=cuefile, logfile=logfile, bwdir=baseworkdir,
 		splitout=splitoutdir, lfemultiplier=lfemultiplier,
 		subboost=("subboost" if subboost else "no-subboost"),
-		sofalizer=("sofalizer" if sofalizer else "no-sofalizer")))
+		sofalizer=("sofalizer" if sofalizer else "no-sofalizer"),
+		normalize=("normalize" if rgnormalize else "no-normalize")))
 			sys.exit(0)
 		elif argname in ("--no-concat", "-no-concat", "-t"):
 			doconcat = False
@@ -558,6 +596,10 @@ Individual steps of the process can be disabled or tuned using these options:
 			sofalizer = True
 		elif argname in ("--no-sofalizer", "-no-sofalizer"):
 			sofalizer = False
+		elif argname in ("--normalize", "-normalize"):
+			rgnormalize = True
+		elif argname in ("--no-normalize", "-no-normalize"):
+			rgnormalize = False
 		elif isdir(argname):
 			path = abspath(argname)
 			break
@@ -612,7 +654,7 @@ Individual steps of the process can be disabled or tuned using these options:
 	if dovolgain and volgain is None:
 		log("### Converting (pass 1)...")
 		voldet()
-		log("### Converting (pass 1) - done. (volgain = %.2f)" % volgain)
+		log("### Converting (pass 1) - done. (gain = %.2f (%s))" % ((replaygain if alimit else volgain), 'rg) (vol = %.2f' % volgain if alimit else 'vol'))
 	
 	if dobconv:
 		log("### Converting (pass 2)...")
