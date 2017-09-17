@@ -155,10 +155,10 @@ aresample=48000:resampler=soxr:precision=28".format(pan=pan, sofa=sofafile,
 {wavs},\
 [a:0]{pan},\
 aresample=96000:resampler=soxr:precision=28[main],\
-[main][h_fl][h_fr][h_fc][h_lfe][h_bc][h_bl][h_br]headphone=map={speakers},\
-firequalizer=delay={eqdelay}:accuracy=2:gain_entry='{subeq}{maineq}',\
-aresample=48000:resampler=soxr:precision=28".format(wavs=wavs, pan=pan, 
-		speakers=speakers, eqdelay=eqdelay, subeq=subeq, maineq=maineq)
+[main][h_fl][h_fr][h_fc][h_lfe][h_bc][h_bl][h_br]headphone=map={speakers}:gain={sofagain},\
+firequalizer=delay={eqdelay}:accuracy=2:gain_entry='{subeq}{maineq}'".format(wavs=wavs, pan=pan, 
+		sofagain=sofagain, speakers=speakers, eqdelay=eqdelay, subeq=subeq, 
+		maineq=maineq)
 	
 	if volume is not None and isfloat(volume):
 		graph += ",volume=%sdB" % float(volume)
@@ -595,8 +595,7 @@ Individual steps of the process can be disabled or tuned using these options:
 	log("Layout: %s" % layout)
 	log("Generate LFE? %s" % ("yes" if generatelfe else "no"))
 	log("Subboost? %s" % ("yes" if subboost else "no"))
-	if sofalizer:
-		log("SOFA gain: %.2f" % sofagain)
+	log("SOFA gain: %.2f" % sofagain)
 	log("LFE multiplier: %.2f" % lfemultiplier)
 	log("Sofalizer? %s" % ("yes" if sofalizer else "no"))
 	
