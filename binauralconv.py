@@ -401,6 +401,12 @@ By default, binauralconv will:
 * convert the concatenated file into binaural stereo,
 * and split it again into individual tracks, using a cue sheet generated from the input files.
 
+If a single file is provided as the PATH argument, binauralconv will work
+in single-file mode: it will convert the given file to binaural stereo and
+output a new file prefixed with "binaural_" to the same directory.
+The output directory and filename can be modified by setting --dir and
+--convfile options after the PATH argument.
+
 Individual steps of the process can be disabled or tuned using these options:
 
  --no-concat, -no-concat, -t:
@@ -629,6 +635,14 @@ Individual steps of the process can be disabled or tuned using these options:
 		elif isdir(argname):
 			path = abspath(argname)
 			break
+		elif isfile(argname):
+			concatfile = realpath(argname)
+			convfile = "binaural_%s" % basename(concatfile)
+			wdir = dirname(concatfile)
+			doconcat = False
+			domakecue = False
+			dosplit = False
+			log("Enabling single file mode for '{filename}' (output filename: {convfile})".format(filename=argname, convfile=convfile))
 		else:
 			log("Unknown argument: %s" % arg)
 	
