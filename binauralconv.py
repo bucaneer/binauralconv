@@ -62,6 +62,8 @@ baseworkdir = "/tmp/binauralconv"
 splitoutdir = "."
 tempfile = None
 sofalizer = False
+resampler = 'soxr'
+outsamplerate=48000
 
 class Logger ():
 	def __init__ (self):
@@ -91,6 +93,13 @@ def log (msg):
 def isfloat (x):
 	try:
 		float(x)
+		return True
+	except ValueError:
+		return False
+
+def isint (x):
+	try:
+		int(x)
 		return True
 	except ValueError:
 		return False
@@ -147,21 +156,21 @@ entry(10000,-3);entry(12000,-4);entry(13000,-3);entry(14000,0);entry(15000,-2.0)
 	if sofalizer:
 		graph = "\
 {pan},\
-aresample=96000:resampler=soxr:precision=28,\
+aresample=96000:resampler={resampler}:precision=28,\
 sofalizer=sofa={sofa}:gain={sofagain}:{speakers},\
 firequalizer=delay={eqdelay}:accuracy=2:gain_entry='{subeq}{maineq}',\
-aresample=48000:resampler=soxr:precision=28".format(pan=pan, sofa=sofafile, 
+aresample={outsamplerate}:resampler={resampler}:precision=28".format(pan=pan, sofa=sofafile, 
 		sofagain=sofagain, speakers=speakers, eqdelay=eqdelay, subeq=subeq,
-		maineq=maineq)
+		maineq=maineq, resampler=resampler, outsamplerate=outsamplerate)
 	else:
 		graph = "\
 {wavs},\
 [a:0]{pan},\
-aresample=96000:resampler=soxr:precision=28[main],\
+aresample=96000:resampler={resampler}:precision=28[main],\
 [main][h_fl][h_fr][h_fc][h_lfe][h_bc][h_bl][h_br]headphone=map={speakers}:gain={sofagain},\
 firequalizer=delay={eqdelay}:accuracy=2:gain_entry='{subeq}{maineq}'".format(wavs=wavs, pan=pan, 
 		sofagain=sofagain, speakers=speakers, eqdelay=eqdelay, subeq=subeq, 
-		maineq=maineq)
+		maineq=maineq, resampler=resampler)
 	
 	if volume is not None and isfloat(volume):
 		graph += ",%s" % oufiltergraph(volume)
@@ -173,7 +182,7 @@ def outfiltergraph (volume):
 	graph = "volume=%sdB" % float(volume)
 	if (alimit):
 		graph += ",alimiter=limit=0.999:level=0:asc=0:attack=10:release=10"
-	graph += ",aresample=48000:resampler=soxr:precision=28"
+	graph += ",aresample={outsamplerate}:resampler={resampler}:precision=28".format(resampler=resampler, outsamplerate=outsamplerate)
 	return graph
 
 def process (args, linefunc=None, exitcodes=(0,)):
@@ -487,6 +496,12 @@ Individual steps of the process can be disabled or tuned using these options:
  --no-normalize, -no-normalize:
   (do not) normalize output to be at least as loud as ReplayGain reference (surrent: {normalize})
  
+ --resampler=soxr|swr, -resampler=soxr|swr
+  set resampling engine: 'soxr' (recommended) or 'swr' (fallback) (current: {resampler})
+ 
+ --out-sample-rate=INT, -out-sample-rate=INT
+  set output sampling rate (in Hz). 96000 minimizes the number of resamplings during conversion. (current: {outsamplerate})
+ 
  --quiet, -quiet, -q:
   quiet mode
  
@@ -501,7 +516,8 @@ Individual steps of the process can be disabled or tuned using these options:
 		splitout=splitoutdir, lfemultiplier=lfemultiplier,
 		subboost=("subboost" if subboost else "no-subboost"),
 		sofalizer=("sofalizer" if sofalizer else "no-sofalizer"),
-		normalize=("normalize" if rgnormalize else "no-normalize")))
+		normalize=("normalize" if rgnormalize else "no-normalize"),
+		resampler=resampler, outsamplerate=outsamplerate))
 			sys.exit(0)
 		elif argname in ("--no-concat", "-no-concat", "-t"):
 			doconcat = False
@@ -600,6 +616,16 @@ Individual steps of the process can be disabled or tuned using these options:
 			rgnormalize = True
 		elif argname in ("--no-normalize", "-no-normalize"):
 			rgnormalize = False
+		elif argname in ("--resampler", "-resampler"):
+			if (param in ("soxr", "swr")):
+				resampler = param
+			else:
+				log("Invalid value for resampler, ignoring")
+		elif argname in ("--out-sample-rate", "-out-sample-rate"):
+			if (isint(param)):
+				outsamplerate = int(param)
+			else:
+				log("Invalid value for output sample rate, ignoring")
 		elif isdir(argname):
 			path = abspath(argname)
 			break
@@ -640,6 +666,7 @@ Individual steps of the process can be disabled or tuned using these options:
 	log("SOFA gain: %.2f" % sofagain)
 	log("LFE multiplier: %.2f" % lfemultiplier)
 	log("Sofalizer? %s" % ("yes" if sofalizer else "no"))
+	log("Resampler: %s" % resampler)
 	
 	if domakecue:
 		log("### Making CUE sheet...")
@@ -657,7 +684,7 @@ Individual steps of the process can be disabled or tuned using these options:
 		log("### Converting (pass 1) - done. (gain = %.2f (%s))" % ((replaygain if alimit else volgain), 'rg) (vol = %.2f' % volgain if alimit else 'vol'))
 	
 	if dobconv:
-		log("### Converting (pass 2)...")
+		log("### Converting (pass 2)... (sampling rate: %d Hz)" % outsamplerate)
 		bconv()
 		log("### Converting (pass 2) - done.")
 	
