@@ -64,6 +64,7 @@ tempfile = None
 sofalizer = False
 resampler = "soxr"
 outsamplerate=48000
+filter_append = ""
 
 class Logger ():
 	def __init__ (self):
@@ -213,6 +214,9 @@ def filtergraph (volume=None):
 				sofagain=sofagain, speakers=speakers, eqdelay=eqdelay, subeq=subeq, 
 				maineq=maineq, resampler=resampler)
 	
+	if filter_append:
+		graph += ",%s" % filter_append
+
 	if volume is not None and isfloat(volume):
 		graph += ",%s" % oufiltergraph(volume)
 	else:
@@ -552,6 +556,9 @@ Individual steps of the process can be disabled or tuned using these options:
  --out-sample-rate=INT, -out-sample-rate=INT
   set output sampling rate (in Hz). 96000 minimizes the number of resamplings during conversion. (current: {outsamplerate})
  
+ --filter-append=STRING, -filter-append=STRING
+  additional FFmpeg filters to add to the end of the conversion filter graph
+
  --quiet, -quiet, -q:
   quiet mode
  
@@ -678,6 +685,8 @@ Individual steps of the process can be disabled or tuned using these options:
 				outsamplerate = int(param)
 			else:
 				log("Invalid value for output sample rate, ignoring")
+		elif argname in ("--filter-append", "-filter-append"):
+			filter_append = param
 		elif isdir(argname):
 			path = abspath(argname)
 			break
